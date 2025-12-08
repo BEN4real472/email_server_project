@@ -5,7 +5,7 @@ def create_demo_server() -> Email_server:
     """Create an Email_server instance and pre-populate some demo users."""
     server = Email_server(capacity=32)
 
-    # Add demo users (you can add more)
+     
     server.add_user(1, "Alice", "alice@example.com")
     server.add_user(2, "Bob", "bob@example.com")
     server.add_user(3, "Charlie", "charlie@example.com")
@@ -104,7 +104,7 @@ def view_sent_items(server: Email_server) -> None:
         print("No mailbox found for that user.")
         return
 
-    # THIS LINE IS ESSENTIAL
+
     sent = mailbox.sent_items
 
     if not sent:
