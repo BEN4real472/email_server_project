@@ -1,9 +1,4 @@
-from __future__ import annotations
-
-from typing import List
-
 from email_server.email_server import Email_server
-from email_server.email_models import Email_message
 
 
 def create_demo_server() -> Email_server:
@@ -27,20 +22,13 @@ def print_menu() -> None:
 
 def list_users(server: Email_server) -> None:
     print("\nRegistered users:")
+    found_any = False
     for bucket in server.users.buckets:
-        for _, user in bucket:
-            print(f"{user.user_id}: {user.name} <{user.email_address}>")
-
-
-def read_body_from_input() -> str:
-    print("Body (finish with a single '.' on its own line):")
-    lines: List[str] = []
-    while True:
-        line = input()
-        if line.strip() == ".":
-            break
-        lines.append(line)
-    return "\n".join(lines)
+        for user_id, user in bucket:
+            found_any = True
+            print(f"- ID: {user_id} | Name: {user.name} | Email: {user.email_address}")
+    if not found_any:
+        print("No users found.")
 
 
 def send_email_via_cli(server: Email_server) -> None:
@@ -52,13 +40,22 @@ def send_email_via_cli(server: Email_server) -> None:
         return
 
     subject = input("Subject: ").strip()
-    body = read_body_from_input()
+    body_lines = []
+    print("Body (enter a single '.' on its own line to finish):")
+    while True:
+        line = input()
+        if line.strip() == ".":
+            break
+        body_lines.append(line)
+    body = "\n".join(body_lines)
 
-    try:
-        server.send_email(sender_id, receiver_id, subject, body)
-        print("Email queued for delivery.")
-    except KeyError as exc:
-        print(f"Error sending email: {exc}")
+    server.send_email(
+        sender_id=sender_id,
+        receiver_id=receiver_id,
+        subject=subject,
+        body=body,
+    )
+    print("Email queued for delivery (still in outbound queue).")
 
 
 def view_inbox(server: Email_server) -> None:
@@ -68,28 +65,25 @@ def view_inbox(server: Email_server) -> None:
         print("User ID must be an integer.")
         return
 
-    sort_choice = input("Sort by (t)ime or (s)ender [t/s]: ").strip().lower()
-    sort_by = "time" if sort_choice != "s" else "sender"
+    sort_choice = input("Sort by (t)ime or (s)ender? [t/s]: ").strip().lower()
+    sort_by = "sender" if sort_choice == "s" else "time"
 
-    try:
-        inbox = server.get_inbox(user_id, sort_by=sort_by)
-    except KeyError:
-        print("No such user.")
-        return
-
+    inbox = server.get_inbox(user_id, sort_by=sort_by)
     if not inbox:
         print("Inbox is empty.")
         return
 
-    print(f"\nInbox for user {user_id}:")
-    for index, msg in enumerate(inbox, start=1):
+    print(f"\nInbox for user {user_id} (sorted by {sort_by}):")
+    for i, msg in enumerate(inbox, start=1):
         print("--------------------------------------------------")
-        print(f"{index}. From: {msg.sender_id}")
-        print(f"   To:   {msg.receiver_id}")
-        print(f"   Subject: {msg.subject}")
-        print(f"   Time: {msg.timestamp}")
-        print("   Body:")
+        print(f"Message #{i}")
+        print(f"From: {msg.sender_id}")
+        print(f"To:   {msg.receiver_id}")
+        print(f"Subject: {msg.subject}")
+        print(f"Time: {msg.timestamp}")
+        print("Body:")
         print(msg.body)
+    print("--------------------------------------------------")
 
 
 def view_sent_items(server: Email_server) -> None:
@@ -100,28 +94,38 @@ def view_sent_items(server: Email_server) -> None:
         return
 
     mailbox = server.mailboxes.get(user_id)
-    if mailbox is None or not mailbox.sent_items:
-        print("No sent items for this user.")
+    if mailbox is None:
+        print("No mailbox found for that user.")
+        return
+
+    sent = mailbox.sent_items
+    if not sent:
+        print("No sent items.")
         return
 
     print(f"\nSent items for user {user_id}:")
-    for index, msg in enumerate(mailbox.sent_items, start=1):
+    for i, msg in enumerate(sent, start=1):
         print("--------------------------------------------------")
-        print(f"{index}. From: {msg.sender_id}")
-        print(f"   To:   {msg.receiver_id}")
-        print(f"   Subject: {msg.subject}")
-        print(f"   Time: {msg.timestamp}")
-        print("   Body:")
+        print(f"Message #{i}")
+        print(f"From: {msg.sender_id}")
+        print(f"To:   {msg.receiver_id}")
+        print(f"Subject: {msg.subject}")
+        print(f"Time: {msg.timestamp}")
+        print("Body:")
         print(msg.body)
+    print("--------------------------------------------------")
 
 
 def process_outbound_queue(server: Email_server) -> None:
+    before = len(server.outbound_queue)
     server.process_outbound_queue()
-    print("Outbound queue processed.")
+    delivered = before - len(server.outbound_queue)
+    print(f"Delivered {delivered} message(s).")
 
 
 def main() -> None:
     server = create_demo_server()
+    print("Demo email server started with 4 demo users.")
 
     while True:
         print_menu()
@@ -138,11 +142,12 @@ def main() -> None:
         elif choice == "5":
             process_outbound_queue(server)
         elif choice == "0":
-            print("Goodbye.")
+            print("Goodbye!")
             break
         else:
-            print("Unknown option, please try again.")
+            print("Invalid choice.")
 
 
 if __name__ == "__main__":
     main()
+
